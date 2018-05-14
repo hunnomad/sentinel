@@ -4,7 +4,7 @@ It's important to note that the coordinate system Tile38 uses is [WGS 84 Web Mer
 
 ## Getting Started
 
-CURL-based class that communicates with the Tile38 server.
+CURL-based class that communicates with the Tile38 server. Please check the <b>Tile38 Server</b> Github page and see the available funcltions. (<a href='https://github.com/tidwall/tile38'>Tile38 Server</a> GitHub)
 
 ### Init Sentinel
 ```
