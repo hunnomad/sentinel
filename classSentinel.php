@@ -68,6 +68,53 @@ class classSentinel
         }
     }
 
+    public function addVehicleObject($groupName,$objectID,$speed,$coords)
+    {
+        $groupName  = isset($groupName) ? $groupName : null;
+        $objectID   = isset($objectID) ? $objectID : null;
+        $coords     = isset($coords) ? $coords : null;
+
+        if(isset($groupName)and($groupName!="" or $groupName!=null))
+        {
+            if(isset($objectID)and($objectID!=null or $objectID!=""))
+            {
+                if(isset($speed) AND ($speed!=0 OR $speed!="" OR $speed!=""))
+                {
+                    if(isset($coords)and($coords!="" or $coords!=null))
+                    {
+                        $command = "SET ".$groupName." ".$objectID." FIELD speed ".$speed." POINT ".$coords;
+                        $value = $this->execute($command);
+
+                        if($value['ok']==1)
+                        {
+                            return 1;
+                        }
+                        else
+                        {
+                            return 0;
+                        }
+                    }
+                    else
+                    {
+                        echo "Missing coordinates";
+                    }
+                }
+                else
+                {
+                    echo "Missing speed data";
+                }
+            }
+            else
+            {
+                echo "Missing objectID parameter";
+            }
+        }
+        else
+        {
+            echo "Missing groupName parameter";
+        }
+    }
+
     /**
      * @name Get all object, when included the $groupName container
      * @function getAllObject
@@ -77,12 +124,38 @@ class classSentinel
 
     public function getAllObject($groupName)
     {
-        $groupName  = isset($groupName) ? $groupName : null;
+        $value = array();
 
+        $groupName  = isset($groupName) ? $groupName : null;
         if(isset($groupName)and($groupName!="" or $groupName!=null))
         {
             $command    = "SCAN ".$groupName;
-            $this->execute($command);
+            $result     = $this->execute($command);
+
+            if($result['ok']==1)
+            {
+                foreach($result['objects'] as $r)
+                {
+                    $id = isset($r['id']) ? $r['id'] : null;
+                    $latitude   = isset($r['object']['coordinates'][0]) ? (float)$r['object']['coordinates'][0] : 0.0;
+                    $longitude  = isset($r['object']['coordinates'][1]) ? (float)$r['object']['coordinates'][1] : 0.0;
+
+                    $speed = isset($r['fields'][0]) ? $r['fields'][0] : null;
+                    if(isset($speed) AND ($speed!=0 OR $speed!="" OR $speed!=""))
+                    {
+                        $value[] = array("groupName"=>"$groupName","id"=>"$id","speed"=>(int)$speed,"latitude"=>(float)$latitude,"longitude"=>(float)$longitude);
+                    }
+                    else
+                    {
+                        $value[] = array("groupName"=>"$groupName","id"=>"$id","latitude"=>(float)$latitude,"longitude"=>(float)$longitude);
+                    }
+                }
+                return $value;
+            }
+            else
+            {
+                return 0;
+            }
         }
         else
         {
@@ -108,7 +181,16 @@ class classSentinel
             if(isset($objectID)and($objectID!="" or $objectID!=null))
             {
                 $command = "DEL ".$groupName." ".$objectID;
-                $this->execute($command);
+                $value = $this->execute($command);
+
+                if($value['ok']==1)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
             }
             else
             {
@@ -135,7 +217,16 @@ class classSentinel
         if(isset($groupName)and($groupName!="" or $groupName!=null))
         {
             $command = "DROP ".$groupName;
-            $this->execute($command);
+            $value = $this->execute($command);
+
+            if($value['ok']==1)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
         }
         else
         {
@@ -165,7 +256,16 @@ class classSentinel
                 if(isset($radius)and($radius!="" or $coords!=null))
                 {
                     $command    = "NEARBY ".$groupName." POINT ".$coords." ".$radius;
-                    $this->execute($command);
+                    $value = $this->execute($command);
+
+                    if($value['ok']==1)
+                    {
+                        return $value;
+                    }
+                    else
+                    {
+                        return array("errorCode"=>"300","errorMsg"=>"No results");
+                    }
                 }
                 else
                 {
@@ -204,23 +304,30 @@ class classSentinel
             if(isset($coords)and($coords!="" or $coords!=null))
             {
                 $command = "NEARBY ".$groupName." LIMIT 1 POINT ".$coords;
-                $result = $this->execute($command);
+                $value = $this->execute($command);
 
-                $officeID   = $result['objects'][0]['id'];
-                $officeLon  = $result['objects'][0]['object']['coordinates'][0];
-                $officeLat  = $result['objects'][0]['object']['coordinates'][1];
+                if($value['ok']==1)
+                {
+                    $officeID   = $result['objects'][0]['id'];
+                    $officeLon  = $result['objects'][0]['object']['coordinates'][0];
+                    $officeLat  = $result['objects'][0]['object']['coordinates'][1];
 
-                $distance   = number_format($this->distance($latitude,$longitude,$officeLat,$officeLon,'K'),2, '.', '');
-                #echo $officeID." ".$officeLat.",".$officeLon."|".$distance;
+                    $distance   = number_format($this->distance($latitude,$longitude,$officeLat,$officeLon,'K'),2, '.', '');
+                    #echo $officeID." ".$officeLat.",".$officeLon."|".$distance;
 
-                $data = array
-                (
-                    'officeID'=>(int)$officeID,
-                    'latitude'=>floatval($officeLat),
-                    'longitude'=>floatval($officeLon),
-                    'distance'=>floatval($distance)
-                );
-                return $data;
+                    $data = array
+                    (
+                        'officeID'=>(int)$officeID,
+                        'latitude'=>floatval($officeLat),
+                        'longitude'=>floatval($officeLon),
+                        'distance'=>floatval($distance)
+                    );
+                    return $data;
+                }
+                else
+                {
+                    return array("errorCode"=>"300","errorMsg"=>"No results");
+                }
             }
             else
             {
@@ -233,6 +340,143 @@ class classSentinel
         }
     }
 
+
+    /**
+    * @name Set Webhook service
+    * @function setWebhook
+    * @param $webhookName string required,$groupName string required,$webhookUrl string required,$latitude float required,$longitude float required,$radius integer default 1000 meters
+    * @return array
+    */
+
+    public function setWebhook($webhookName,$groupName,$webhookUrl,$latitude,$longitude,$radius=1000)
+    {
+        if(isset($webhookName)AND($webhookName!="" OR $webhookName!=NULL))
+        {
+            if(isset($groupName) AND($groupName!="" OR $groupName!=NULL))
+            {
+                if(isset($webhookUrl)AND($webhookUrl!="" OR $webhookUrl!=NULL))
+                {
+                    if(isset($latitude)AND($latitude!="" OR $latitude!=NULL))
+                    {
+                        if(isset($longitude)AND($longitude!="" OR $longitude!=NULL))
+                        {
+                            $command    = "SETHOOK ".$webhookName." ".$webhookUrl." NEARBY ".$groupName." FENCE POINT ".$latitude." ".$longitude." ".$radius."";
+                            $value = $this->execute($command);
+
+                            if($value['ok']==1)
+                            {
+                                return 1;
+                            }
+                            else
+                            {
+                                return 0;
+                            }
+                        }
+                        else
+                        {
+                            return "Missing longitude";
+                        }
+                    }
+                    else
+                    {
+                        return "Missing latitude";
+                    }
+                }
+                else
+                {
+                    return "Missing webhookUrl";
+                }
+            }
+            else
+            {
+                return "Missing groupName";
+            }
+        }
+        else
+        {
+            return "Missing webhookName";
+        }
+    }
+
+    /**
+    * @name
+    * @function
+    * @param
+    * @return
+    */
+
+    public function delWebhook($webHookName)
+    {
+        if(isset($webHookName) AND ($webHookName!="" or $webHookName!=NULL))
+        {
+            $command    = "DELHOOK $webHookName";
+            $value      = $this->execute($command);
+
+            if($value['ok']==1)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            return "2"; // Missing webhook name
+        }
+    }
+
+    /**
+    * @name
+    * @function
+    * @param
+    * @return
+    */
+
+    public function getWebhooks()
+    {
+        $command    = "HOOKS *";
+        $value      = $this->execute($command);
+
+        $result = array();
+        $webHookdata= $value['hooks'];
+
+        if(is_array($webHookdata))
+        {
+            foreach($webHookdata AS $r)
+            {
+
+                $webhookName    = isset($r['name']) ? $r['name'] : NULL;
+                $groupName      = isset($r['key']) ? $r['key'] : NULL;
+                $endpoints      = implode(",",$r['endpoints']);
+                $watchType      = isset($r['command'][0]) ? $r['command'][0] : NULL;
+                $crossType      = isset($r['command'][1]) ? $r['command'][1] : NULL;
+                $geoType        = isset($r['command'][2]) ? $r['command'][2] : NULL;
+                $latitude       = isset($r['command'][4]) ? $r['command'][4] : NULL;
+                $longitude      = isset($r['command'][5]) ? $r['command'][5] : NULL;
+                $radius         = isset($r['command'][6]) ? $r['command'][6] : NULL;
+
+                $result[] = array
+                (
+                    "webHook"   =>"$webhookName",
+                    "groupName" =>"$groupName",
+                    "endpoints" =>"$endpoints",
+                    "watchType" =>"$watchType",
+                    "crossType" =>"$crossType",
+                    "geoType"   =>"$geoType",
+                    "latitude"  =>(float)$latitude,
+                    "longitude" =>(float)$longitude,
+                    "radius"    =>(int)$radius
+                );
+            }
+        return $result;
+        }
+        else
+        {
+            return array("errorCode"=>"300","errorMsg"=>"No results");
+        }
+    }
     /* ---------------------------------------------------------------------------------*/
 
     /**
@@ -278,7 +522,6 @@ class classSentinel
 
     private function execute($command)
     {
-        #echo $command;
         if(isset($command)and($command!="" or $command!=null))
         {
             $DataUrl = $this->tileServer;
@@ -299,14 +542,6 @@ class classSentinel
             }
             else
             {
-                /* Developrt stage - start*/
-                /*
-                $answer = json_decode($response,true);
-                echo "<pre>";
-                print_r($answer);
-                echo "</pre>";
-                */
-                /* Developrt stage - end*/
                 return json_decode($response,true);
             }
         }
