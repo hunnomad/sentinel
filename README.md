@@ -63,3 +63,4 @@ Calculate distance between two coordinates
 ```
 $distance   = number_format($this->distance($latitude,$longitude,$officeLat,$officeLon,'K'),2, '.', '');
 ```
+
